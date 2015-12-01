@@ -1,0 +1,6 @@
+{
+    "type" : "programm",
+    "files" : [
+        "main.cpp"
+    ]
+}
