@@ -5,6 +5,7 @@ from json import load
 from subprocess import run
 from hashlib import sha1
 
+
 class BuildUnit:
 
     def __init__(self, build_filename):
@@ -15,8 +16,13 @@ class BuildUnit:
             self.buildfile = load(f)
     
     def Build(self):
+        objects = []
         for filename in self.buildfile['files']:
-            run('gcc -c {0} -o {1}'.format(filename, sha1(filename).hexdigest()))
+            object_filename = sha1(filename.encode('utf-8')).hexdigest()
+            run('g++ -c {0} -o {1}'.format(filename, object_filename), shell=True)
+            objects.append(object_filename)
+        run('g++ {0} -o {1}'.format(' '.join(objects), self.buildfile['name']), shell=True)
+        
 
 def main(argv):
     unit = BuildUnit('./Buildfile')

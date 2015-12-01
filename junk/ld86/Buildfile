@@ -1,5 +1,6 @@
 {
     "type" : "programm",
+    "name" : "main",
     "files" : [
         "main.cpp"
     ]
