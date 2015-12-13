@@ -4,17 +4,33 @@ from sys import exit, argv
 from json import load
 from subprocess import run
 from hashlib import sha1
+from os import path
 
+class Options:
+
+    def __init__(self, argv):
+        self.argv = argv
+        self.root = argv[0]
+        for i in range(2): # On the level of 2 from the root.
+            self.root = path.dirname(self.root)
+
+    def get_root(self):
+        return self.root
 
 class BuildUnit:
 
-    def __init__(self, build_filename):
+    def __init__(self, build_filename, options):
+        self.options = options
         self.__parse_buildfile(build_filename)
         
     def __parse_buildfile(self, build_filename):
         with open(build_filename) as f:
             self.buildfile = load(f)
     
+    def build(self):
+        print(self.options.get_root())
+
+    """
     def Build(self):
         objects = []
         for filename in self.buildfile['files']:
@@ -22,11 +38,13 @@ class BuildUnit:
             run('g++ -c {0} -o {1}'.format(filename, object_filename), shell=True)
             objects.append(object_filename)
         run('g++ {0} -o {1}'.format(' '.join(objects), self.buildfile['name']), shell=True)
+    """
         
 
 def main(argv):
-    unit = BuildUnit('./Buildfile')
-    unit.Build()
+    options = Options(argv)
+    unit = BuildUnit('Buildfile', options)
+    unit.build()
 
 if __name__ == "__main__":
     exit(main(argv))
