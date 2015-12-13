@@ -3,5 +3,8 @@
     "name" : "main",
     "files" : [
         "main.cpp"
+    ],
+    "deps" : [
+        "library/dummy"
     ]
 }
