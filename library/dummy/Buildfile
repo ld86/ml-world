@@ -1,0 +1,8 @@
+{
+    "type" : "library",
+    "name" : "dummy",
+    "files" : [
+        "dummy.cpp"
+    ]
+}
+
