@@ -43,13 +43,15 @@ class BuildUnit:
         with open(build_filename) as f:
             self.buildfile = load(f)
 
-    def __get_cached_filename(self, filename):
+    def __get_cached_filename(self, filename, use_content=True):
         cache_dir = self.options.get_cache_dir()
         current_dir = self.options.get_current_dir()
+        file_sha1 = filename
         filename = path.join(current_dir, filename)
         filename_sha1 = sha1(filename.encode('utf-8')).hexdigest()
-        with open(filename, 'rb') as f:
-            file_sha1 = sha1(f.read()).hexdigest()
+        if use_content:
+            with open(filename, 'rb') as f:
+                file_sha1 = sha1(f.read()).hexdigest()
         return path.join(cache_dir, '{0}-{1}'.format(filename_sha1, file_sha1))
  
     def __compile(self, filename):
@@ -70,10 +72,10 @@ class BuildUnit:
         buildfile_type = self.buildfile['type']
         if buildfile_type  == 'library':
             executable = 'ld -r'
-            name = path.join(current_dir, self.buildfile['name'])
+            name = self.__get_cached_filename(self.buildfile['name'], False)
         elif buildfile_type  == 'programm':
             executable = 'g++'
-            name = self.__get_cached_filename(self.buildfile['name'])
+            name = path.join(current_dir, self.buildfile['name'])
         else:
             raise Exception('Wrong Buildfile type : {0}'.format(buildfile_type))
 
