@@ -4,18 +4,28 @@ from sys import exit, argv
 from json import load
 from subprocess import run
 from hashlib import sha1
-from os import path
+from os import path, getcwd, makedirs
 
 class Options:
 
     def __init__(self, argv):
         self.argv = argv
-        self.root = argv[0]
+        self.root_dir = argv[0]
         for i in range(2): # On the level of 2 from the root.
-            self.root = path.dirname(self.root)
+            self.root_dir = path.dirname(self.root_dir)
+        self.cache_dir = path.join(self.root_dir, '.make')
+        if not path.isdir(self.cache_dir):
+            makedirs(self.cache_dir)
+        self.current_dir = getcwd()
 
-    def get_root(self):
+    def get_root_dir(self):
         return self.root
+
+    def get_cache_dir(self):
+        return self.cache_dir
+
+    def get_current_dir(self):
+        return self.current_dir
 
 class BuildUnit:
 
@@ -26,20 +36,35 @@ class BuildUnit:
     def __parse_buildfile(self, build_filename):
         with open(build_filename) as f:
             self.buildfile = load(f)
-    
-    def build(self):
-        print(self.options.get_root())
 
-    """
-    def Build(self):
+    def __get_cached_filename(self, filename):
+        cache_dir = self.options.get_cache_dir()
+        current_dir = self.options.get_current_dir()
+        filename = path.join(current_dir, filename)
+        filename_sha1 = sha1(filename.encode('utf-8')).hexdigest()
+        with open(filename) as f:
+            file_sha1 = sha1(f.read().encode('utf-8')).hexdigest()
+        return path.join(cache_dir, '{0}-{1}'.format(filename_sha1, file_sha1))
+ 
+    def __compile(self, filename):
+        cached_filename = self.__get_cached_filename(filename)
+        filename = path.join(self.options.get_current_dir(), filename)
+        if not path.isfile(cached_filename):
+            print('[CC] {0}'.format(filename))
+            run('g++ -c {0} -o {1}'.format(filename, cached_filename), shell=True)
+        return cached_filename
+
+    def __link(self, objects):
+        current_dir = self.options.get_current_dir()
+        name = path.join(current_dir, self.buildfile['name'])
+        print('[LD] {0}'.format(name))
+        run('g++ {0} -o {1}'.format(' '.join(objects), name), shell=True)
+
+    def build(self):
         objects = []
         for filename in self.buildfile['files']:
-            object_filename = sha1(filename.encode('utf-8')).hexdigest()
-            run('g++ -c {0} -o {1}'.format(filename, object_filename), shell=True)
-            objects.append(object_filename)
-        run('g++ {0} -o {1}'.format(' '.join(objects), self.buildfile['name']), shell=True)
-    """
-        
+            objects.append(self.__compile(filename))
+        self.__link(objects)
 
 def main(argv):
     options = Options(argv)
