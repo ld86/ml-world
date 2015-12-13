@@ -5,6 +5,7 @@ from json import load
 from subprocess import run
 from hashlib import sha1
 from os import path, getcwd, makedirs
+from copy import deepcopy
 
 class Options:
 
@@ -19,13 +20,18 @@ class Options:
         self.current_dir = getcwd()
 
     def get_root_dir(self):
-        return self.root
+        return self.root_dir
 
     def get_cache_dir(self):
         return self.cache_dir
 
     def get_current_dir(self):
         return self.current_dir
+
+    def verbose(self):
+        if '-v' in argv:
+            return True
+        return False
 
 class BuildUnit:
 
@@ -42,29 +48,61 @@ class BuildUnit:
         current_dir = self.options.get_current_dir()
         filename = path.join(current_dir, filename)
         filename_sha1 = sha1(filename.encode('utf-8')).hexdigest()
-        with open(filename) as f:
-            file_sha1 = sha1(f.read().encode('utf-8')).hexdigest()
+        with open(filename, 'rb') as f:
+            file_sha1 = sha1(f.read()).hexdigest()
         return path.join(cache_dir, '{0}-{1}'.format(filename_sha1, file_sha1))
  
     def __compile(self, filename):
         cached_filename = self.__get_cached_filename(filename)
+        root_dir = self.options.get_root_dir()
         filename = path.join(self.options.get_current_dir(), filename)
         if not path.isfile(cached_filename):
             print('[CC] {0}'.format(filename))
-            run('g++ -c {0} -o {1}'.format(filename, cached_filename), shell=True)
+            command = 'g++ -I {0} -c {1} -o {2}'.format(root_dir, filename, cached_filename)
+            if self.options.verbose():
+                print(command)
+            run(command, shell=True)
         return cached_filename
 
     def __link(self, objects):
         current_dir = self.options.get_current_dir()
-        name = path.join(current_dir, self.buildfile['name'])
+
+        buildfile_type = self.buildfile['type']
+        if buildfile_type  == 'library':
+            executable = 'ld -r'
+            name = path.join(current_dir, self.buildfile['name'])
+        elif buildfile_type  == 'programm':
+            executable = 'g++'
+            name = self.__get_cached_filename(self.buildfile['name'])
+        else:
+            raise Exception('Wrong Buildfile type : {0}'.format(buildfile_type))
+
         print('[LD] {0}'.format(name))
-        run('g++ {0} -o {1}'.format(' '.join(objects), name), shell=True)
+
+        
+        command = '{0} {1} -o {2}'.format(executable, ' '.join(objects), name)
+        if self.options.verbose():
+            print(command)
+        run(command, shell=True)
+        return name
+
+    def __build_dep(self, dep):
+        root_dir = self.options.get_root_dir()
+        dep_dir = path.join(root_dir, dep)
+        build_filename = path.join(dep_dir, 'Buildfile')
+        dep_options = deepcopy(self.options)
+        dep_options.current_dir = dep_dir
+        dep_unit = BuildUnit(build_filename, dep_options)
+        return dep_unit.build()
 
     def build(self):
         objects = []
         for filename in self.buildfile['files']:
             objects.append(self.__compile(filename))
-        self.__link(objects)
+        if 'deps' in self.buildfile:
+            for dep in self.buildfile['deps']:
+                objects.append(self.__build_dep(dep))
+        return self.__link(objects)
 
 def main(argv):
     options = Options(argv)
